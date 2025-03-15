@@ -5,8 +5,7 @@ import time
 
 # Configure instance list
 instances = [
-    'https://mastodon.social',
-    'https://fosstodon.org'
+    your_instances
 ]
 
 access_token = 'your_access_token'
