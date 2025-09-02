@@ -26,7 +26,7 @@ The dataset includes anonymized CSV files located in the `data/` folder. These p
 Contains all scripts utilized in the paper for data processing, analysis, and visualization for **RQ1** and **RQ2**.
 
 For **RQ3**, content similarity is performed using **CCFinderX**.  
-- Refer to the [CCFinderX Tutorial](https://github.com/jbanaszczyk/CCFinderX/wiki/Tutorial-of-ccfx) for instructions on running the tool and analyzing code similarities.  
+- Refer to the [CCFinderX Tutorial](https://github.com/jbanaszczyk/CCFinderX/wiki/Tutorial-of-ccfx) for instructions on running the tool and analyzing content similarities.  
 
 ## How to Use
 
