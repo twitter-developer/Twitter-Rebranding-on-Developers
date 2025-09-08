@@ -18,8 +18,11 @@ The dataset includes anonymized CSV files located in the `data/` folder. These p
   - Fill in your token, username, and password in the script to access Twitter/X API.  
 
 - **Mastodon.py** and **Bluesky.py**    
-  - Collect users whose data you want to retrieve.
+  - Fill in your token to access Mastodon API. 
 
+- **Bluesky.py**  
+  - Fill in your username, and password to access Bluesky API.
+    
 `code/`
 
 Contains all scripts utilized in the paper for data processing, analysis, and visualization for **RQ1** and **RQ2**, as well as for mapping developers from Twitter/X to Mastodon and Bluesky for **RQ3**.
