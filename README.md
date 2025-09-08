@@ -15,7 +15,6 @@ The dataset includes anonymized CSV files located in the `data/` folder. These p
 `collect_data/`
 
 - **Twitter.py**  
-  - Collect users whose data you want to retrieve.  
   - Fill in your token, username, and password in the script to access Twitter/X API.  
 
 - **Mastodon.py** and **Bluesky.py**    
@@ -23,7 +22,7 @@ The dataset includes anonymized CSV files located in the `data/` folder. These p
 
 `code/`
 
-Contains all scripts utilized in the paper for data processing, analysis, and visualization for **RQ1** and **RQ2**.
+Contains all scripts utilized in the paper for data processing, analysis, and visualization for **RQ1** and **RQ2**, as well as for mapping developers from Twitter/X to Mastodon and Bluesky for **RQ3**.
 
 For **RQ3**, content similarity is performed using **CCFinderX**.  
 - Refer to the [CCFinderX Tutorial](https://github.com/jbanaszczyk/CCFinderX/wiki/Tutorial-of-ccfx) for instructions on running the tool and analyzing content similarities.  
