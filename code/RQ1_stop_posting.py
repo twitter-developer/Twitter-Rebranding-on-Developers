@@ -1,65 +1,108 @@
 import matplotlib.pyplot as plt
 import pandas as pd
+from scipy.stats import linregress
 
-# Load data
+# ========== Load data ==========
 df = pd.read_csv('twitter_data_path')
+print("Total number of tweets:", len(df))
+print("Total number of users:", df['UserID'].nunique())
 
-# Print total rows and number of unique users
-print(len(df))
-print(df['UserID'].nunique())
-
-# Parse datetime field
+# Parse time field
 df['time'] = pd.to_datetime(df['Tweet_Created At'], format='%a %b %d %H:%M:%S %z %Y')
-df['time'] = df['time'].dt.tz_localize(None)  # Remove timezone
-
-# Define analysis period and grace period
-start_date = pd.Timestamp('2022-01-01')
-end_date = pd.Timestamp('2023-12-31')
-grace_period = pd.Timedelta(days=120)  # Grace period length: 120 days
-
-# Filter data within the analysis period including grace period
-df = df[(df['time'] >= start_date) & (df['time'] <= end_date + grace_period)]
+df['time'] = df['time'].dt.tz_localize(None)  # remove timezone
 df = df.dropna(subset=['Text'])
 
-# Get last post time for each user
-last_post = df.groupby('UserID')['time'].max().reset_index()
-last_post.columns = ['UserID', 'last_time']
+# ========== Set analysis period ==========
+start_date = pd.Timestamp('2022-01-01')
+end_date   = pd.Timestamp('2023-12-31') 
 
-# Identify users who posted after the grace period
-activity_cutoff = end_date + grace_period
-has_later_posts = df[df['time'] > activity_cutoff]['UserID'].unique()
+# ========== Identify users who stopped posting ==========
+# Last post time for each user
+last_post_full = df.groupby('UserID', as_index=False)['time'].max().rename(columns={'time':'last_time'})
 
-# Remove users who are still active after the grace period
-last_post = last_post[~last_post['UserID'].isin(has_later_posts)]
+# Define “stopped”: last post within [start_date, end_date]
+stoppers = last_post_full[
+    (last_post_full['last_time'] >= start_date) &
+    (last_post_full['last_time'] <= end_date)
+].copy()
 
-# Keep last post times within the analysis period
-last_post = last_post[(last_post['last_time'] >= start_date) & (last_post['last_time'] <= end_date)]
+num_left = stoppers['UserID'].nunique()
+print(f"\nTotal number of users who stopped posting: {num_left}")
 
-# Count total users who stopped posting
-num_left = last_post['UserID'].nunique()
-print(f"Total users who stopped posting: {num_left}")
-
-# Count users by month
-last_post['last_month'] = last_post['last_time'].dt.to_period('M').dt.to_timestamp()
-monthly_counts = last_post.groupby('last_month')['UserID'].count().reset_index()
+# ========== Monthly statistics ==========
+stoppers['last_month'] = stoppers['last_time'].dt.to_period('M').dt.to_timestamp()
+monthly_counts = stoppers.groupby('last_month')['UserID'].count().reset_index()
 monthly_counts.columns = ['month', 'num_users_stopped']
 monthly_counts = monthly_counts.sort_values('month')
 
-# Plot monthly user drop-off
+# ========== Plot ==========
 plt.figure(figsize=(10, 5))
 plt.plot(monthly_counts['month'], monthly_counts['num_users_stopped'], marker='o', linewidth=3, markersize=8)
 plt.xlabel('Month', fontsize=16)
-plt.ylabel('Number of developers stopped posting', fontsize=16)
+plt.ylabel('Number of developers stop posting', fontsize=16)
+
+# Key event timeline
 plt.axvline(pd.Timestamp('2022-10-28'), color='#d62728', linestyle='--', linewidth=3, label='2022-10-28')
 plt.axvline(pd.Timestamp('2023-07-23'), color='#009E73', linestyle='-.', linewidth=3, label='2023-07-23')
 plt.legend(fontsize=14)
+
 plt.xticks(rotation=45, fontsize=14)
 plt.yticks(fontsize=14)
 plt.tight_layout()
-plt.savefig('plot_path', dpi=500)
+plt.savefig('plot_path)', dpi=500)
 plt.show()
 
-# Analyze users who stopped posting after a specific date
-cutoff_date = pd.Timestamp('2022-10-01')
-num_after_oct2022 = last_post[last_post['last_time'] >= cutoff_date]['UserID'].nunique()
-print(f"\nNumber of users who stopped posting on or after 2022-10-01: {num_after_oct2022}")
+# ========== Users who stopped after 2022-10-28 ==========
+cutoff_date = pd.Timestamp('2022-10-28')
+num_after_oct2022 = stoppers[stoppers['last_time'] >= cutoff_date]['UserID'].nunique()
+print(f"\nNumber of users who stopped on/after Oct 28, 2022: {num_after_oct2022}")
+
+# ========== Activity analysis ==========
+df_left = df[df['UserID'].isin(stoppers['UserID'])]
+df_left = df_left.merge(stoppers[['UserID', 'last_time']], on='UserID')
+
+# Define window (e.g., 30 days)
+window_recent = pd.Timedelta(days=30)
+
+# ====== Tweets within 30 days before leaving ======
+df_recent = df_left[
+    (df_left['time'] >= df_left['last_time'] - window_recent) &
+    (df_left['time'] < df_left['last_time'])
+]
+
+recent_counts = df_recent.groupby('UserID')['Text'].count().reset_index()
+recent_counts.columns = ['UserID', 'tweets_recent_30d']
+
+# Add all leaving users (fill 0 if no tweets)
+all_left_users = pd.DataFrame({'UserID': stoppers['UserID']})
+recent_counts_full = all_left_users.merge(recent_counts, on='UserID', how='left').fillna(0)
+recent_counts_full['tweets_recent_30d'] = recent_counts_full['tweets_recent_30d'].astype(int)
+recent_counts_full['avg_daily_recent'] = recent_counts_full['tweets_recent_30d'] / window_recent.days
+
+print("Tweet counts in last 30 days before leaving:")
+print(recent_counts_full['tweets_recent_30d'].describe())
+print("\nAverage daily tweet counts in last 30 days before leaving:")
+print(recent_counts_full['avg_daily_recent'].describe())
+
+# Number of users with 0 tweets in last 30 days
+num_zero_tweets_30d = (recent_counts_full['tweets_recent_30d'] == 0).sum()
+print(f"Number of users with 0 tweets in last 30 days: {num_zero_tweets_30d}")
+
+# Number of users with >5 tweets in last 30 days
+num_over5_tweets_30d = (recent_counts_full['tweets_recent_30d'] > 5).sum()
+print(f"Number of users with more than 5 tweets in last 30 days: {num_over5_tweets_30d}")
+
+# ========== Followers/Following analysis ==========
+left_users = stoppers['UserID'].unique()
+latest_info = df[df['UserID'].isin(left_users)].sort_values('time', ascending=False)
+latest_info = latest_info.drop_duplicates(subset='UserID', keep='first')
+
+influence_df = latest_info[['UserID', 'Followers_Count', 'Following_Count']]
+top_follower_user = influence_df.loc[influence_df['Followers_Count'].idxmax()]
+print("\nUser with most followers among leavers:")
+print(top_follower_user)
+
+num_over_1k = (influence_df['Followers_Count'] > 1000).sum()
+print(f"\nNumber of users with more than 1000 followers among leavers: {num_over_1k}")
+
+
